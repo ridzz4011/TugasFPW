@@ -1,0 +1,61 @@
+services:
+  # Laravel Application (using Apache)
+  laravel-app:
+    build:
+      context: '.'
+      dockerfile: Dockerfile # Explicitly state the Dockerfile name
+    container_name: laravel-app # Renamed for clarity
+    ports:
+      - "8000:80" # Access via http://localhost:8080
+      - "5173:5173"
+    volumes:
+      - .:/var/www/html # Mount your local code into the container
+      # Add any other volumes needed, e.g., for persistent storage if not using the DB
+    depends_on:
+      - mysql-db # Ensure DB starts before the app
+    networks:
+      - backend
+
+  # MySQL Database
+  mysql-db:
+    image: mysql:8.0
+    container_name: mysql-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD} # Use env var
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    volumes:
+      - mysql_data:/var/lib/mysql # Use a named volume for persistence
+    networks:
+      - backend
+
+  # phpMyAdmin
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8080:80" # Access via http://localhost:8001 (changed from 8000 to avoid potential conflicts)
+    environment:
+      PMA_HOST: mysql-db       # Connect to the mysql service
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD} # Use the same env var as mysql service
+      # PMA_USER and PMA_PASSWORD are not typically needed if using MYSQL_ROOT_PASSWORD
+      UPLOAD_LIMIT: 1G # Optional: Increase upload limit if needed
+    depends_on:
+      - mysql-db
+    networks:
+      - backend
+
+# Docker Networks
+networks:
+  backend:
+    driver: bridge # Default bridge network is fine
+    name: backend-network
+
+# Docker Volumes
+volumes:
+  mysql_data: # Define the named volume used by mysql-db
+    driver: local
