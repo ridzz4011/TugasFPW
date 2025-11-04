@@ -4,15 +4,28 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Product;
+use App\Exports\ProductsExport;
+use Maatwebsite\Excel\Facades\Excel;
+use Spatie\Browsershot\Browsershot;
+use Dompdf\Dompdf;
 
 class ProductController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $data = Product::all();
+        $query = Product::query();
+
+        if ($request->has('search') && $request->search != '') {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('product_name', 'like', '%' . $search . '%');
+            });
+        }
+
+        $data = $query->paginate(2);
         return view("master-data.product-master.index-product", compact('data'));
     }
 
@@ -47,7 +60,8 @@ class ProductController extends Controller
      */
     public function show(string $id)
     {
-        //
+        $product = Product::findOrFail($id);
+        return view('master-data.product-master.detail-product', compact('product'));
     }
 
     /**
@@ -87,10 +101,29 @@ class ProductController extends Controller
     }
 
     /**
+     * Export Excel
+     */
+    public function exportExcel() {
+        return Excel::download(new ProductsExport, 'product.xlsx');
+    }
+
+    /**
+     * Export Image from csv
+     */
+    public function exportPDF() {
+        return Excel::download(new ProductsExport, 'product.pdf', \Maatwebsite\Excel\Excel::DOMPDF);
+    }
+
+    /**
      * Remove the specified resource from storage.
      */
     public function destroy(string $id)
     {
-        //
+        $product = Product::find($id);
+        if ($product) {
+            $product->delete();
+            return redirect()->back()->with('success', 'Product Berhasil Dihapus!');
+        }
+        return redirect()->back()->with('error', 'Product Tidak Ditemukan!');
     }
 }
